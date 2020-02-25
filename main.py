@@ -95,6 +95,9 @@ def threshold_formula(q, w, k):
     """
     return k / ((1 - q + q * w) * (k ** 2))
 
+
+# ======= 单点接触模式 ========
+
 if __name__ == '__main__':
     er = nx.erdos_renyi_graph(N, P)  # ER随机图
     # ws = nx.watts_strogatz_graph(N, K, 0.3)  # WS小世界
@@ -102,6 +105,3 @@ if __name__ == '__main__':
 
     iterations = reactive_process(er, 0.3, 1)
     thr = threshold_simula(iterations)
-
-# 单点接触模式
-
