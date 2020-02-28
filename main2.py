@@ -129,11 +129,14 @@ def infected_density(graph, iterations):
             zero_degree.add(i)
 
     # 取迭代结果中的最小平均感染密度
+    print('infected_nodes: [', end='')
     for idx, itr in enumerate(iterations):
         temp = itr['node_count'][1]
+        print(temp, end=', ')
         if temp < infected_n:
             infected_n = temp
             index = idx
+    print(']')
     status = iterations[index]['status']
 
     # 统计度数为0的感染节点
@@ -153,13 +156,13 @@ if __name__ == '__main__':
     # ws = nx.watts_strogatz_graph(N, K, 0.3)  # WS小世界
     # ba = nx.barabasi_albert_graph(N, K)  # BA无标度网络
 
-    for w in range(1, 8):
-        thr_simu = threshold_simula(er, w, 0.1)
-        thr_form = threshold_formula(w, 0.1)
-        print('w = %d: simulation = %f, formulation = %f' % (w, thr_simu, thr_form))
+    # for w in range(1, 8):
+    #     thr_simu = threshold_simula(er, w, 0.1)
+    #     thr_form = threshold_formula(w, 0.1)
+    #     print('w = %d: simulation = %f, formulation = %f' % (w, thr_simu, thr_form))
 
-    # for i in range(9):
-    #     q = i / 10
-    #     thr_simu = threshold_simula(er, 2, q)
-    #     thr_form = threshold_formula(2, q)
-    #     print('q = %f: simulation = %f, formulation = %f' % (q, thr_simu, thr_form))
+    for i in range(1, 9):
+        q = i / 10
+        thr_simu = threshold_simula(er, 2, q)
+        thr_form = threshold_formula(2, q)
+        print('q = %f: simulation = %f, formulation = %f' % (q, thr_simu, thr_form))
