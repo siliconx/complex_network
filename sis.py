@@ -62,11 +62,11 @@ class ReactiveProcess(object):
         # 设置边属性
         for i in friend_e:
             attr[i] = {
-                'weight': w,
+                'weight': 2,  # 边的标记，不是真正的权重，不用来计算
             }
         for i in work_e:
             attr[i] = {
-                'weight': 1,
+                'weight': 1,  # 边的标记，不是真正的权重，不用来计算
             }
         nx.set_edge_attributes(self.graph, attr)
 
@@ -78,7 +78,7 @@ class ReactiveProcess(object):
         model.add_status('Infected')
 
         # compartment
-        friend_com = ENA('weight', value=w, op='==', probability=friend_p,
+        friend_com = ENA('weight', value=2, op='==', probability=friend_p,
                 triggering_status='Infected')  # 朋友条件
         work_com = ENA('weight', value=1, op='==', probability=work_p,
                 triggering_status='Infected')  # 工作条件
@@ -127,7 +127,7 @@ class ReactiveProcess(object):
                 iterations = self.simulation(w, q, work_p)  # 用当前参数进行模拟
                 density = self.infected_density(iterations)  # 平均感染密度
                 memory[work_p] = density  # 记录
-            # print('density = %f, work_p = %f' % (density, work_p))
+            print('density = %f, work_p = %f' % (density, work_p))
 
             # 震荡求解，用越来越小的步长逐步逼近实际的感染率，类似二分搜索
             if density > 0:
