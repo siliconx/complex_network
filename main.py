@@ -96,7 +96,7 @@ def threshold_simula(graph, w, q):
     w：高权重边/朋友关系 的权重 >= 1
     q: 高权重/朋友 比例
     """
-    work_p = 0  # 感染率λ
+    work_p = STEP  # 感染率λ
     while True:
         iterations = simulation(graph, w, q, work_p)  # 用当前参数进行模拟
         density = infected_density(graph, iterations)  # 平均感染密度
