@@ -19,6 +19,7 @@ MU = 1  # 恢复概率μ
 RHO_0 = 0.15  # 初始感染密度ρ0
 ROUND = 250  # 模拟轮数，时间步
 STEP = 0.1 # 感染率步长
+PRECISION = 0.0001  # 步长精度
 
 # 可视化网络
 # nx.draw(er)
@@ -97,11 +98,18 @@ def threshold_simula(graph, w, q):
     q: 高权重/朋友 比例
     """
     work_p = STEP  # 初始感染率λ，给初值，减少迭代次数
-    step = STEP / 2  # 变化的步长
+    step_v = STEP / 2  # 变化的步长
     operation = None  # 控制步长变化的开关
-    while step > 0.00001:
-        iterations = simulation(graph, w, q, work_p)  # 用当前参数进行模拟
-        density = infected_density(graph, iterations)  # 平均感染密度
+    memory = dict()  # 记录已经计算过的值，减少计算量(震荡求解的时候某些值会重复)
+    while True:
+        den_m = memory.get(work_p)
+        if den_m:  # 已经计算过此work_p
+            print('(old work_p)', end='')
+            density = den_m
+        else:  # 新的work_p
+            iterations = simulation(graph, w, q, work_p)  # 用当前参数进行模拟
+            density = infected_density(graph, iterations)  # 平均感染密度
+            memory[work_p] = density  # 记录
         print('density = %f, work_p = %f' % (density, work_p))
 
         # 震荡求解，用越来越小的步长逐步逼近实际的感染率，类似二分搜索
@@ -110,15 +118,21 @@ def threshold_simula(graph, w, q):
                 operation = '-'
             elif operation == '+':  # 方向变化
                 operation = '-'
-                step /= 2
-            work_p -= step  # 减小感染率
+                step_v /= 2
         elif density == 0:
             if operation == None:
                 operation = '+'
             elif operation == '-':  # 方向变化
                 operation = '+'
-                step /= 2
-            work_p += step  # 增加感染率
+                step_v /= 2
+
+        if step_v < PRECISION:  # 先判断精度再修改work_p
+            break
+
+        if operation == '+':
+            work_p += step_v  # 增加感染率
+        elif operation == '-':
+            work_p -= step_v  # 减小感染率
 
 
     thr = work_p / MU
@@ -146,15 +160,12 @@ def infected_density(graph, iterations):
             zero_degree.add(i)
 
     # 取迭代结果中的最小平均感染密度
-    # print('infected_nodes: [', end='')
     for idx, itr in enumerate(iterations):
         temp = itr['node_count'][1]
-        # print(temp, end=', ')
         if temp < infected_n:
             infected_n = temp
             index = idx
     status = iterations[index]['status']
-    # print(']')
 
     # 统计度数为0的感染节点
     for s in status:
@@ -173,13 +184,13 @@ if __name__ == '__main__':
     # ws = nx.watts_strogatz_graph(N, K, 0.3)  # WS小世界
     # ba = nx.barabasi_albert_graph(N, K)  # BA无标度网络
 
-    for w in range(1, 8):
-        thr_simu = threshold_simula(er, w, 0.1)
-        thr_form = threshold_formula(w, 0.1)
-        print('w = %d: simulation = %f, formulation = %f\n\n' % (w, thr_simu, thr_form))
+    # for w in range(1, 8):
+    #     thr_simu = threshold_simula(er, w, 0.1)
+    #     thr_form = threshold_formula(w, 0.1)
+    #     print('w = %d: simulation = %f, formulation = %f\n\n' % (w, thr_simu, thr_form))
 
-    # for i in range(9):
-    #     q = i / 10
-    #     thr_simu = threshold_simula(er, 2, q)
-    #     thr_form = threshold_formula(2, q)
-    #     print('q = %f: simulation = %f, formulation = %f' % (q, thr_simu, thr_form))
+    for i in range(9):
+        q = i / 10
+        thr_simu = threshold_simula(er, 2, q)
+        thr_form = threshold_formula(2, q)
+        print('q = %f: simulation = %f, formulation = %f' % (q, thr_simu, thr_form))
