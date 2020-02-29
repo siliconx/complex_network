@@ -12,13 +12,13 @@ import ndlib.models.CompositeModel as gc
 import ndlib.models.compartments.EdgeNumericalAttribute as ENA
 from ndlib.viz.bokeh.DiffusionTrend import DiffusionTrend
 
-N = 500  # 网络规模
+N = 200  # 网络规模
 K = 8  # 平均度
 P = K / (N - 1)  # ER连边概率, k = p * (n - 1)
 MU = 1  # 恢复概率μ
 RHO_0 = 0.15  # 初始感染密度ρ0
 ROUND = 250  # 模拟轮数，时间步
-STEP = 0.001 # 感染率步长
+STEP = 0.1 # 感染率步长
 
 # 可视化网络
 # nx.draw(er)
@@ -96,13 +96,30 @@ def threshold_simula(graph, w, q):
     w：高权重边/朋友关系 的权重 >= 1
     q: 高权重/朋友 比例
     """
-    work_p = STEP  # 感染率λ
-    while True:
+    work_p = STEP  # 初始感染率λ，给初值，减少迭代次数
+    step = STEP / 2  # 变化的步长
+    operation = None  # 控制步长变化的开关
+    while step > 0.00001:
         iterations = simulation(graph, w, q, work_p)  # 用当前参数进行模拟
         density = infected_density(graph, iterations)  # 平均感染密度
+        print('density = %f, work_p = %f' % (density, work_p))
+
+        # 震荡求解，用越来越小的步长逐步逼近实际的感染率，类似二分搜索
         if density > 0:
-            break
-        work_p += STEP
+            if operation == None:
+                operation = '-'
+            elif operation == '+':  # 方向变化
+                operation = '-'
+                step /= 2
+            work_p -= step  # 减小感染率
+        elif density == 0:
+            if operation == None:
+                operation = '+'
+            elif operation == '-':  # 方向变化
+                operation = '+'
+                step /= 2
+            work_p += step  # 增加感染率
+
 
     thr = work_p / MU
     return thr
@@ -129,12 +146,15 @@ def infected_density(graph, iterations):
             zero_degree.add(i)
 
     # 取迭代结果中的最小平均感染密度
+    # print('infected_nodes: [', end='')
     for idx, itr in enumerate(iterations):
         temp = itr['node_count'][1]
+        # print(temp, end=', ')
         if temp < infected_n:
             infected_n = temp
             index = idx
     status = iterations[index]['status']
+    # print(']')
 
     # 统计度数为0的感染节点
     for s in status:
@@ -156,7 +176,7 @@ if __name__ == '__main__':
     for w in range(1, 8):
         thr_simu = threshold_simula(er, w, 0.1)
         thr_form = threshold_formula(w, 0.1)
-        print('w = %d: simulation = %f, formulation = %f' % (w, thr_simu, thr_form))
+        print('w = %d: simulation = %f, formulation = %f\n\n' % (w, thr_simu, thr_form))
 
     # for i in range(9):
     #     q = i / 10
