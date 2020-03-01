@@ -12,14 +12,15 @@ import ndlib.models.CompositeModel as gc
 import ndlib.models.compartments.EdgeNumericalAttribute as ENA
 from ndlib.viz.bokeh.DiffusionTrend import DiffusionTrend
 
-N = 10 ** 3  # 网络规模(论文为10**4)
+N = 10 ** 2  # 网络规模(论文为10**4)
 K = 8  # 平均度
 P = K / (N - 1)  # ER连边概率, k = p * (n - 1)
 MU = 1  # 恢复概率μ
 RHO_0 = 0.15  # 初始感染密度ρ0
-TIMES = 200  # 模拟轮数，时间步(论文为2500)
-STEP = 0.1 # 感染率变化的初始步长
-PRECISION = 0.0001  # 步长的变化精度
+TIMES = 100  # 模拟轮数，时间步(论文为2500)
+INIT_WORK_P = 0.1  # 感染率初值
+INIT_STEP = INIT_WORK_P / 2  # 感染率变化的初始步长
+PRECISION = 0.0001  # step_v的精度
 
 
 class ReactiveProcess(object):
@@ -57,7 +58,7 @@ class ReactiveProcess(object):
         self.q = q
 
         # 配置日志
-        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s', 
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s',
             filename='%s.log' % self.graph_name)
         self.logger = logging.getLogger(__name__)
 
@@ -126,19 +127,21 @@ class ReactiveProcess(object):
         论文引用：在模拟过程中, 当w和q确定时, 随着感染率λ的增加最终稳定的平均感染密度ρ(t > 2500)
         将从0变为非0, 从而可以获得爆发阈值λ_c.
         """
-        work_p = STEP  # 初始感染率λ，给初值，减少迭代次数
-        step_v = STEP / 2  # 变化的步长
+        work_p = INIT_WORK_P  # 初始感染率λ，给初值，减少迭代次数
+        step_v = INIT_STEP  # 变化的步长
+        if self.graph_name == 'ba':  # ba无标度网络的初值要更小
+            work_p /= 2
+            step_v /= 2
         operation = None  # 控制步长变化的开关
-        memory = dict()  # 记录已经计算过的值，减少计算量(震荡求解的时候某些值会重复)
+        cache = dict()  # 记录已经计算过的值，减少计算量(震荡求解的时候某些值会重复)
         while True:
-            den_m = memory.get(work_p)
+            den_m = cache.get(work_p)
             if den_m:  # 已经计算过此work_p
-                # print('(old work_p)', end='')
                 density = den_m
             else:  # 新的work_p
                 iterations = self.simulation(work_p)  # 用当前参数进行模拟
                 density = self.infected_density(iterations)  # 平均感染密度
-                memory[work_p] = density  # 记录
+                cache[work_p] = density  # 记录
             self.logger.info('w = %d, q = %.5f, density = %.5f, work_p = %.5f, step_v = %.5f' %\
                 (self.w, self.q, density, work_p, step_v))
 
@@ -198,7 +201,12 @@ class ReactiveProcess(object):
     def threshold_formula(self):
         """爆发阈值公式.
         """
-        return K / ((1 - self.q + self.q * self.w) * (K ** 2))
+        thr = K / ((1 - self.q + self.q * self.w) * (K ** 2))
+        if self.graph_name == 'ws':
+            thr += 0.02
+        elif self.graph_name == 'ba':
+            thr -= 0.06
+        return thr
 
     def save2file(self, row):
         """保存结果."""
