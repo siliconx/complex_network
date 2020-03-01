@@ -4,6 +4,7 @@ import csv
 import time
 import random
 import bokeh
+import logging
 import networkx as nx
 import matplotlib.pyplot as plt
 import ndlib.models.ModelConfig as mc
@@ -16,47 +17,55 @@ K = 8  # 平均度
 P = K / (N - 1)  # ER连边概率, k = p * (n - 1)
 MU = 1  # 恢复概率μ
 RHO_0 = 0.15  # 初始感染密度ρ0
-TIMES = 500  # 模拟轮数，时间步
+TIMES = 250  # 模拟轮数，时间步
 STEP = 0.1 # 感染率初始步长
-PRECISION = 0.00001  # 步长精度
+PRECISION = 0.0001  # 步长精度
 
 
 class ReactiveProcess(object):
     """全接触模式."""
 
-    def __init__(self, graph_name, method):
+    def __init__(self, graph_name, w, q):
         """初始化.
            graph_name: 底层的图结构--ER/WS/BA
-           method: 对w/q进行模拟
+           w：高权重边/朋友关系 的权重 >= 1
+           q: 高权重/朋友 比例
         """
         super(ReactiveProcess, self).__init__()
 
-        if graph_name == 'ER':
+        if graph_name == 'er':
             self.graph = nx.erdos_renyi_graph(N, P)  # ER随机图
-        elif graph_name == 'WS':
+        elif graph_name == 'ws':
             self.graph = nx.watts_strogatz_graph(N, K, 0.3)  # WS小世界
-        elif graph_name == 'BA':
+        elif graph_name == 'ba':
             self.graph = nx.barabasi_albert_graph(N, K)  # BA无标度网络
         else:
-            raise ValueError('graph name: ER/WS/BA')
+            raise ValueError('graph name: er/ws/ba')
         self.graph_name = graph_name
 
-        if method not in ['w', 'q']:
-            raise ValueError('method: w/q')
-        self.method = method  # 模拟w还是q
+        if not (1 <= w <= 10):
+            raise ValueError('w = [1, 10]')
+        self.w = w
 
-    def simulation(self, w, q, work_p, show_trends=False):
+        if not (0 <= q <= 1):
+            raise ValueError('q = [0, 1]')
+        self.q = q
+
+        # 配置日志
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s', 
+            filename='%s.log' % self.graph_name)
+        self.logger = logging.getLogger(__name__)
+
+    def simulation(self, work_p, show_trends=False):
         """传染病模拟.
-           w：高权重边/朋友关系 的权重 >= 1
-           q: 高权重/朋友 比例
            work_p: 工作关系感染率,即感染率λ
         """
-        friend_p = 1 - (1 - work_p) ** w  # 朋友关系感染概率
+        friend_p = 1 - (1 - work_p) ** self.w  # 朋友关系感染概率
 
         attr = {}  # 边属性
         edges = self.graph.edges()  # 所有的边
         len_edges = len(edges)  # 边的数量
-        friend_e = random.sample(edges, int(q*len_edges))  # 朋友关系
+        friend_e = random.sample(edges, int(self.q*len_edges))  # 朋友关系
         work_e = set(edges) - set(friend_e)  # 工作关系
 
         # 设置边属性
@@ -107,12 +116,10 @@ class ReactiveProcess(object):
 
         return iterations
 
-    def threshold_simula(self, w, q):
+    def threshold_simula(self):
         """求模拟结果的爆发阈值.
         论文引用：在模拟过程中, 当w和q确定时, 随着感染率λ的增加最终稳定的平均感染密度ρ(t > 2500)
         将从0变为非0, 从而可以获得爆发阈值λ_c.
-        w：高权重边/朋友关系 的权重 >= 1
-        q: 高权重/朋友 比例
         """
         work_p = STEP  # 初始感染率λ，给初值，减少迭代次数
         step_v = STEP / 2  # 变化的步长
@@ -124,10 +131,11 @@ class ReactiveProcess(object):
                 # print('(old work_p)', end='')
                 density = den_m
             else:  # 新的work_p
-                iterations = self.simulation(w, q, work_p)  # 用当前参数进行模拟
+                iterations = self.simulation(work_p)  # 用当前参数进行模拟
                 density = self.infected_density(iterations)  # 平均感染密度
                 memory[work_p] = density  # 记录
-            print('density = %f, work_p = %f' % (density, work_p))
+            self.logger.info('w = %d, q = %f, density = %f, work_p = %f' %\
+                (self.w, self. q, density, work_p))
 
             # 震荡求解，用越来越小的步长逐步逼近实际的感染率，类似二分搜索
             if density > 0:
@@ -182,16 +190,14 @@ class ReactiveProcess(object):
 
         return (infected_n - zero_count) / N
 
-    def threshold_formula(self, w, q):
+    def threshold_formula(self):
         """爆发阈值公式.
-           w: 高权重边的权重
-           q: 高权重边比例
         """
-        return K / ((1 - q + q * w) * (K ** 2))
+        return K / ((1 - self.q + self.q * self.w) * (K ** 2))
 
-    def save2file(self, *row):
+    def save2file(self, row):
         """保存结果."""
-        file_name = '%s_%s.csv' % (self.graph_name, self.method)
+        file_name = '%s.csv' % (self.graph_name)
         exist = False
         if os.path.exists(file_name):  # 检测文件是否存在
             exist = True
@@ -199,8 +205,8 @@ class ReactiveProcess(object):
         with open(file_name, 'a') as f:
             csv_wrt = csv.writer(f, delimiter='\t')
             if not exist:  # 新文件
-                csv_wrt.writerow([self.method, 'simula', 'formula', 'time'])
-            csv_wrt.writerow(*row)
+                csv_wrt.writerow(['w', 'q', 'simula', 'formula'])
+            csv_wrt.writerow(row)
 
     def show(self):
         """显示网络拓扑结构."""
@@ -209,23 +215,14 @@ class ReactiveProcess(object):
 
     def run(self):
         """运行程序."""
-        if self.method == 'w':
-            for w in range(1, 8):
-                start = time.time()
-                thr_simu = self.threshold_simula(w, 0.1)
-                thr_form = self.threshold_formula(w, 0.1)
-                end = time.time()
-                time_used = (end - start) / 60  # mins
-                self.save2file((w, thr_simu, thr_form, time_used))
-        elif self.method == 'q':
-            for i in range(9):
-                q = i / 10
-                start = time.time()
-                thr_simu = self.threshold_simula(2, q)
-                thr_form = self.threshold_formula(2, q)
-                end = time.time()
-                time_used = (end - start) / 60  # mins
-                self.save2file((q, thr_simu, thr_form, time_used))
+        start = time.time()
+        thr_simu = self.threshold_simula()
+        thr_form = self.threshold_formula()
+        end = time.time()
+        time_used = (end - start) / 60  # mins
+        self.save2file((self.w, self.q, thr_simu, thr_form))
+        self.logger.info('w = %d, q = %f, used %.4fmins' %\
+            (self.w, self. q, density, work_p))
 
 
 class ContactProcess(object):
@@ -234,8 +231,11 @@ class ContactProcess(object):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        print('Two args: graph name and method are needed!')
+    if len(sys.argv) != 4:
+        print('Three args:\n(1)graph name(er/ws/ba)\n(2)w and\n(3)q are needed!')
         exit()
-    rp = ReactiveProcess(sys.argv[1], sys.argv[2])
+    graph_name = sys.argv[1]
+    w = int(sys.argv[2])
+    q = float(sys.argv[3])
+    rp = ReactiveProcess(graph_name, w, q)
     rp.run()
