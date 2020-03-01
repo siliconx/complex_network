@@ -1,5 +1,6 @@
 __pychache__
-*.pyc
 venv/
-.out
+*.pyc
+*.out
+*.log
 

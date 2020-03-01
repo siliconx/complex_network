@@ -236,6 +236,6 @@ if __name__ == '__main__':
         exit()
     graph_name = sys.argv[1]
     w = int(sys.argv[2])
-    q = float(sys.argv[3])
+    q = float(sys.argv[3]) / 10  # bash不支持小数，故在python中转换
     rp = ReactiveProcess(graph_name, w, q)
     rp.run()
