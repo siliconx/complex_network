@@ -12,12 +12,12 @@ import ndlib.models.CompositeModel as gc
 import ndlib.models.compartments.EdgeNumericalAttribute as ENA
 from ndlib.viz.bokeh.DiffusionTrend import DiffusionTrend
 
-N = 1000  # 网络规模
+N = 100  # 网络规模
 K = 8  # 平均度
 P = K / (N - 1)  # ER连边概率, k = p * (n - 1)
 MU = 1  # 恢复概率μ
 RHO_0 = 0.15  # 初始感染密度ρ0
-TIMES = 250  # 模拟轮数，时间步
+TIMES = 100  # 模拟轮数，时间步
 STEP = 0.1 # 感染率初始步长
 PRECISION = 0.0001  # 步长精度
 
@@ -220,9 +220,9 @@ class ReactiveProcess(object):
         thr_form = self.threshold_formula()
         end = time.time()
         time_used = (end - start) / 60  # mins
-        self.save2file((self.w, self.q, thr_simu, thr_form))
-        self.logger.info('w = %d, q = %f, used %.4fmins' %\
-            (self.w, self. q, density, work_p))
+        self.save2file((self.w, self.q, '%.5f' % thr_simu, '%.5f' % thr_form))
+        self.logger.info('w = %d, q = %f done, %.5f mins used' %\
+            (self.w, self. q, time_used))
 
 
 class ContactProcess(object):
