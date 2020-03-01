@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 因为ndlib不能利用多核cpu并行模拟，故这里为每一对graph-w-q建一个python进程
-for g in er
+for g in er ws ba
 do
     for w in {1..7}
     do
