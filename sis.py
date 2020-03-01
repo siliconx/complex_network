@@ -12,12 +12,12 @@ import ndlib.models.CompositeModel as gc
 import ndlib.models.compartments.EdgeNumericalAttribute as ENA
 from ndlib.viz.bokeh.DiffusionTrend import DiffusionTrend
 
-N = 100  # 网络规模
+N = 1000  # 网络规模
 K = 8  # 平均度
 P = K / (N - 1)  # ER连边概率, k = p * (n - 1)
 MU = 1  # 恢复概率μ
 RHO_0 = 0.15  # 初始感染密度ρ0
-TIMES = 100  # 模拟轮数，时间步
+TIMES = 200  # 模拟轮数，时间步
 STEP = 0.1 # 感染率初始步长
 PRECISION = 0.0001  # 步长精度
 
@@ -232,7 +232,7 @@ class ContactProcess(object):
 
 if __name__ == '__main__':
     if len(sys.argv) != 4:
-        print('Three args:\n(1)graph name(er/ws/ba)\n(2)w and\n(3)q are needed!')
+        print('Three args are needed!:\n(1)graph name(er/ws/ba)\n(2)w[1-10]\n(3)q[0-10]')
         exit()
     graph_name = sys.argv[1]
     w = int(sys.argv[2])
