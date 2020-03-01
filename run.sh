@@ -5,7 +5,7 @@ for g in er ws ba
 do
     for w in {1..7}
     do
-        nohup python3 sis.py $g $w 0.1 &
+        nohup python3 sis.py $g $w 1 &
     done
 
     for q in {0..8}  # bash不支持小数，在python中转换
