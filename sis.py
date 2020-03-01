@@ -12,22 +12,23 @@ import ndlib.models.CompositeModel as gc
 import ndlib.models.compartments.EdgeNumericalAttribute as ENA
 from ndlib.viz.bokeh.DiffusionTrend import DiffusionTrend
 
-N = 1000  # 网络规模
+N = 10 ** 3  # 网络规模(论文为10**4)
 K = 8  # 平均度
 P = K / (N - 1)  # ER连边概率, k = p * (n - 1)
 MU = 1  # 恢复概率μ
 RHO_0 = 0.15  # 初始感染密度ρ0
-TIMES = 200  # 模拟轮数，时间步
-STEP = 0.1 # 感染率初始步长
-PRECISION = 0.0001  # 步长精度
+TIMES = 200  # 模拟轮数，时间步(论文为2500)
+STEP = 0.1 # 感染率变化的初始步长
+PRECISION = 0.0001  # 步长的变化精度
 
 
 class ReactiveProcess(object):
     """全接触模式."""
 
-    def __init__(self, graph_name, w, q):
+    def __init__(self, graph_name, variable, w, q):
         """初始化.
            graph_name: 底层的图结构--ER/WS/BA
+           variable: 变化的量(w/q). 如果为w，则q固定
            w：高权重边/朋友关系 的权重 >= 1
            q: 高权重/朋友 比例
         """
@@ -40,8 +41,12 @@ class ReactiveProcess(object):
         elif graph_name == 'ba':
             self.graph = nx.barabasi_albert_graph(N, K)  # BA无标度网络
         else:
-            raise ValueError('graph name: er/ws/ba')
+            raise ValueError('graph name = er/ws/ba')
         self.graph_name = graph_name
+
+        if variable not in ['w', 'q']:
+            raise ValueError('variable = w/s')
+        self.variable = variable
 
         if not (1 <= w <= 10):
             raise ValueError('w = [1, 10]')
@@ -134,20 +139,20 @@ class ReactiveProcess(object):
                 iterations = self.simulation(work_p)  # 用当前参数进行模拟
                 density = self.infected_density(iterations)  # 平均感染密度
                 memory[work_p] = density  # 记录
-            self.logger.info('w = %d, q = %f, density = %f, work_p = %f' %\
-                (self.w, self. q, density, work_p))
+            self.logger.info('w = %d, q = %.5f, density = %.5f, work_p = %.5f, step_v = %.5f' %\
+                (self.w, self.q, density, work_p, step_v))
 
             # 震荡求解，用越来越小的步长逐步逼近实际的感染率，类似二分搜索
             if density > 0:
                 if operation == None:
                     operation = '-'
-                elif operation == '+':  # 方向变化
+                elif operation == '+':  # 方向变化，步长减半
                     operation = '-'
                     step_v /= 2
             elif density == 0:
                 if operation == None:
                     operation = '+'
-                elif operation == '-':  # 方向变化
+                elif operation == '-':  # 方向变化，步长减半
                     operation = '+'
                     step_v /= 2
 
@@ -205,7 +210,7 @@ class ReactiveProcess(object):
         with open(file_name, 'a') as f:
             csv_wrt = csv.writer(f, delimiter='\t')
             if not exist:  # 新文件
-                csv_wrt.writerow(['w', 'q', 'simula', 'formula'])
+                csv_wrt.writerow(['w', 'q', 'simula', 'formula', 'variable'])
             csv_wrt.writerow(row)
 
     def show(self):
@@ -220,8 +225,8 @@ class ReactiveProcess(object):
         thr_form = self.threshold_formula()
         end = time.time()
         time_used = (end - start) / 60  # mins
-        self.save2file((self.w, self.q, '%.5f' % thr_simu, '%.5f' % thr_form))
-        self.logger.info('w = %d, q = %f done, %.5f mins used' %\
+        self.save2file((self.w, self.q, '%.5f' % thr_simu, '%.5f' % thr_form, self.variable))
+        self.logger.info('w = %d, q = %f done, %.2f mins used' %\
             (self.w, self. q, time_used))
 
 
@@ -231,11 +236,13 @@ class ContactProcess(object):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 4:
-        print('Three args are needed!:\n(1)graph name(er/ws/ba)\n(2)w[1-10]\n(3)q[0-10]')
+    if len(sys.argv) != 5:
+        print('4 args are needed!:\n(1)graph name(er/ws/ba)\n' +\
+            '(2)variable(w/q)\n(3)w[1-10]\n(4)q[0-10]')
         exit()
     graph_name = sys.argv[1]
-    w = int(sys.argv[2])
-    q = float(sys.argv[3]) / 10  # bash不支持小数，故在python中转换
-    rp = ReactiveProcess(graph_name, w, q)
+    variable = sys.argv[2]
+    w = int(sys.argv[3])
+    q = float(sys.argv[4]) / 10  # bash不支持小数，故在python中转换
+    rp = ReactiveProcess(graph_name, variable, w, q)
     rp.run()
