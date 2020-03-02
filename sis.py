@@ -17,7 +17,7 @@ MU = 1  # 恢复概率μ
 RHO_0 = 0.15  # 初始感染密度ρ0
 TIMES = 2500  # 模拟轮数，时间步(论文为2500)
 INIT_WORK_P = 0.1  # 感染率初值
-INIT_STEP = INIT_WORK_P / 2  # 感染率变化的初始步长
+INIT_STEP = INIT_WORK_P / 4  # 感染率变化的初始步长
 PRECISION = 0.0001  # step_v的精度
 
 
