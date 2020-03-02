@@ -7,17 +7,15 @@ import bokeh
 import logging
 import networkx as nx
 import matplotlib.pyplot as plt
+import ndlib.models.epidemics as ep
 import ndlib.models.ModelConfig as mc
-import ndlib.models.CompositeModel as gc
-import ndlib.models.compartments.EdgeNumericalAttribute as ENA
 from ndlib.viz.bokeh.DiffusionTrend import DiffusionTrend
 
-N = 100  # 网络规模(论文为10**4)
+N = 10 ** 4  # 网络规模(论文为10**4)
 K = 8  # 平均度
-P = K / (N - 1)  # ER连边概率, k = p * (n - 1)
 MU = 1  # 恢复概率μ
 RHO_0 = 0.15  # 初始感染密度ρ0
-TIMES = 200  # 模拟轮数，时间步(论文为2500)
+TIMES = 2500  # 模拟轮数，时间步(论文为2500)
 INIT_WORK_P = 0.1  # 感染率初值
 INIT_STEP = INIT_WORK_P / 2  # 感染率变化的初始步长
 PRECISION = 0.0001  # step_v的精度
@@ -35,12 +33,13 @@ class ReactiveProcess(object):
         """
         super(ReactiveProcess, self).__init__()
 
-        if graph_name == 'er':
-            self.graph = nx.erdos_renyi_graph(N, P)  # ER随机图
-        elif graph_name == 'ws':
-            self.graph = nx.watts_strogatz_graph(N, K, 0.3)  # WS小世界
-        elif graph_name == 'ba':
-            self.graph = nx.barabasi_albert_graph(N, K)  # BA无标度网络
+        if graph_name == 'er':  # ER随机图
+            edge_p = K / (N - 1)  # ER连边概率, k = p * (n - 1)
+            self.graph = nx.erdos_renyi_graph(N, edge_p)
+        elif graph_name == 'ws':  # WS小世界
+            self.graph = nx.watts_strogatz_graph(N, K, 0.3)
+        elif graph_name == 'ba':  # BA无标度网络
+            self.graph = nx.barabasi_albert_graph(N, K)
         else:
             raise ValueError('graph name = er/ws/ba')
         self.graph_name = graph_name
@@ -66,47 +65,18 @@ class ReactiveProcess(object):
         """传染病模拟.
            work_p: 工作关系感染率,即感染率λ
         """
-        friend_p = 1 - (1 - work_p) ** self.w  # 朋友关系感染概率
+        # 对于网络中任意一条边, 利用平均场近似, 其在 τ = 1 时间步内成功传
+        # 播病毒的概率。通过这个公式，把双关系网络转化为单一关系网络
+        p = (1 - self.q) * work_p + \
+                self.q * (1 - (1 - work_p) ** w)
 
-        attr = {}  # 边属性
-        edges = self.graph.edges()  # 所有的边
-        len_edges = len(edges)  # 边的数量
-        friend_e = random.sample(edges, int(self.q*len_edges))  # 朋友关系
-        work_e = set(edges) - set(friend_e)  # 工作关系
+        # 选择SIS模型
+        model = ep.SISModel(self.graph)
 
-        # 设置边属性
-        for i in friend_e:
-            attr[i] = {
-                'weight': 2,  # 边的标记，不是真正的权重，不用来计算
-            }
-        for i in work_e:
-            attr[i] = {
-                'weight': 1,  # 边的标记，不是真正的权重，不用来计算
-            }
-        nx.set_edge_attributes(self.graph, attr)
-
-        # 组合模型
-        model = gc.CompositeModel(self.graph)
-
-        # 模型状态
-        model.add_status('Susceptible')
-        model.add_status('Infected')
-
-        # compartment
-        friend_com = ENA('weight', value=2, op='==', probability=friend_p,
-                triggering_status='Infected')  # 朋友条件
-        work_com = ENA('weight', value=1, op='==', probability=work_p,
-                triggering_status='Infected')  # 工作条件
-        recover_com = ENA('weight', value=0, op='!=',
-                probability=MU)  # 恢复条件，用于任意边
-
-        # 添加规则到模型
-        model.add_rule('Susceptible', 'Infected', friend_com)
-        model.add_rule('Susceptible', 'Infected', work_com)
-        model.add_rule('Infected', 'Susceptible', recover_com)
-
-        # 模型初始配置
+        # 模型配置
         cfg = mc.Configuration()
+        cfg.add_model_parameter('beta', p)
+        cfg.add_model_parameter('lambda', MU)
         cfg.add_model_parameter('fraction_infected', RHO_0)
         model.set_initial_status(cfg)
 
@@ -132,6 +102,7 @@ class ReactiveProcess(object):
         if self.graph_name == 'ba':  # ba无标度网络的初值要更小
             work_p /= 2
             step_v /= 2
+
         operation = None  # 控制步长变化的开关
         cache = dict()  # 记录已经计算过的值，减少计算量(震荡求解的时候某些值会重复)
         while True:
@@ -201,17 +172,24 @@ class ReactiveProcess(object):
         for s in status:
             if status[s] == 1 and s in zero_degree:
                 zero_count += 1
+        self.logger.info(('w = %d, q = %.5f, variable = %s,' +\
+            ' zero count = %d') % (self.w, self.q, self.variable, zero_count))
 
         return (infected_n - zero_count) / N
 
     def threshold_formula(self):
         """爆发阈值公式.
         """
-        thr = K / ((1 - self.q + self.q * self.w) * (K ** 2))
-        if self.graph_name == 'ws':
-            thr += 0.02
-        elif self.graph_name == 'ba':
-            thr -= 0.06
+        k = 0  # 平均度
+        k_2 = 0  # 平均平方度
+        for d in self.graph.degree:
+            k += d[1]
+            k_2 += d[1] ** 2
+        k /= N
+        k_2 /= N
+
+        thr = k / ((1 - self.q + self.q * self.w) * k_2)
+
         return thr
 
     def save2file(self, row):
