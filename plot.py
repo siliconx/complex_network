@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 def threshold_plot():
     """绘制爆发阈值."""
     graphs = ['er', 'ws', 'ba']  # 网络图
-    line_style = [('ro-', 'r-'), ('b^--', 'b-'), ('gs-.', 'g-')]  # 对应的样式
-    fig, axes = plt.subplots(1, 2)
+    line_style = [('ro:', 'r-'), ('b^--', 'b-'), ('gs-.', 'g-')]  # 对应的样式
+    fig, axes = plt.subplots(2, 1)
     for ax in axes:
             ax.set_ylabel('λ_c')
 
@@ -23,6 +23,10 @@ def threshold_plot():
             new_var = new_var.sort_index()  # 按w/q排序
             for idx, col in enumerate(new_var.columns):
                 new_var[col].plot(ax=ax, style=ls[idx], label='%s_%s' % (g.upper(), col))
+                if v == 'w':
+                    ax.set_xlabel('w (q=0.1)')
+                else:
+                    ax.set_xlabel('q (w=2)')
                 ax.legend()
     plt.show()
 
