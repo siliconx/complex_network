@@ -148,49 +148,32 @@ class ReactiveProcess(object):
         return work_p / MU  # 爆发阈值 = 感染率 / 恢复率
 
     def infected_density(self, iterations):
-        """根据模拟结果计算平均感染密度(忽略度为0的感染节点).
+        """根据模拟结果计算平均感染密度.
         iterations: 模拟的每一步结果
         """
         infected_n = N + 1  # 感染节点数量
-        index = 0  # 最小感染密度的位置
-        zero_count = 0  # 记录度数为0的感染节点数
-        zero_degree = set()  # 度为0的节点
-
-        for i in self.graph.degree:  # 找到网络中所有度数为0的节点
-            if i[1] == 0:
-                zero_degree.add(i)
 
         # 取感染节点数最少的一个结果
         for idx, itr in enumerate(iterations):
             temp = itr['node_count'][1]
             if temp < infected_n:
                 infected_n = temp
-                index = idx
-        status = iterations[index]['status']
 
-        # 统计度数为0的感染节点
-        for s in status:
-            if status[s] == 1 and s in zero_degree:
-                zero_count += 1
-        self.logger.info(('w = %d, q = %.5f, variable = %s,' +\
-            ' zero count = %d') % (self.w, self.q, self.variable, zero_count))
-
-        return (infected_n - zero_count) / N
+        return infected_n / N
 
     def threshold_formula(self):
         """爆发阈值公式.
         """
-        k = 0  # 平均度
-        k_2 = 0  # 平均平方度
-        for d in self.graph.degree:
-            k += d[1]
-            k_2 += d[1] ** 2
-        k /= N
-        k_2 /= N
+        d = 0  # 度之和
+        d_2 = 0  # 度的平方之和
+        for i in self.graph.degree:
+            d += i[1]
+            d_2 += i[1] ** 2
 
-        thr = k / ((1 - self.q + self.q * self.w) * k_2)
+        k = d / N  # 平均度, <k>
+        k_2 = d_2 / N  # 平均平方度, <k^2>
 
-        return thr
+        return k / ((1 - self.q + self.q * self.w) * k_2)
 
     def save2file(self, row):
         """保存结果."""
