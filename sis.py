@@ -12,7 +12,7 @@ import ndlib.models.CompositeModel as gc
 import ndlib.models.compartments.EdgeNumericalAttribute as ENA
 from ndlib.viz.bokeh.DiffusionTrend import DiffusionTrend
 
-N = 1500  # 网络规模(论文为10**4)
+N = 500  # 网络规模(论文为10**4)
 K = 8  # 平均度
 P = K / (N - 1)  # ER连边概率, k = p * (n - 1)
 MU = 1  # 恢复概率μ
@@ -135,6 +135,7 @@ class ReactiveProcess(object):
         operation = None  # 控制步长变化的开关
         cache = dict()  # 记录已经计算过的值，减少计算量(震荡求解的时候某些值会重复)
         while True:
+            start = time.time()
             den_m = cache.get(work_p)
             if den_m:  # 已经计算过此work_p
                 density = den_m
@@ -142,8 +143,11 @@ class ReactiveProcess(object):
                 iterations = self.simulation(work_p)  # 用当前参数进行模拟
                 density = self.infected_density(iterations)  # 平均感染密度
                 cache[work_p] = density  # 记录
-            self.logger.info('w = %d, q = %.5f, density = %.5f, work_p = %.5f, step_v = %.5f' %\
-                (self.w, self.q, density, work_p, step_v))
+            end = time.time()
+            time_used = (end - start) / 60  # mins
+            self.logger.info('w = %d, q = %.5f, density = %.5f, ' + \
+                'work_p = %.5f, step_v = %.5f, %.2f mins used' % \
+                (self.w, self.q, density, work_p, step_v, time_used))
 
             # 震荡求解，用越来越小的步长逐步逼近实际的感染率，类似二分搜索
             if density > 0:
@@ -234,7 +238,7 @@ class ReactiveProcess(object):
         end = time.time()
         time_used = (end - start) / 60  # mins
         self.save2file((self.w, self.q, '%.5f' % thr_simu, '%.5f' % thr_form, self.variable))
-        self.logger.info('w = %d, q = %f done, %.2f mins used' %\
+        self.logger.info('w = %d, q = %.5f done, %.2f mins used' %\
             (self.w, self. q, time_used))
 
 
