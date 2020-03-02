@@ -39,7 +39,8 @@ class ReactiveProcess(object):
         elif graph_name == 'ws':  # WS小世界
             self.graph = nx.watts_strogatz_graph(N, K, 0.3)
         elif graph_name == 'ba':  # BA无标度网络
-            self.graph = nx.barabasi_albert_graph(N, K)
+            # 经实验，m = <k> / 2
+            self.graph = nx.barabasi_albert_graph(N, K / 2)
         else:
             raise ValueError('graph name = er/ws/ba')
         self.graph_name = graph_name
