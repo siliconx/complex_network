@@ -12,7 +12,7 @@ import ndlib.models.CompositeModel as gc
 import ndlib.models.compartments.EdgeNumericalAttribute as ENA
 from ndlib.viz.bokeh.DiffusionTrend import DiffusionTrend
 
-N = 500  # 网络规模(论文为10**4)
+N = 100  # 网络规模(论文为10**4)
 K = 8  # 平均度
 P = K / (N - 1)  # ER连边概率, k = p * (n - 1)
 MU = 1  # 恢复概率μ
@@ -124,8 +124,8 @@ class ReactiveProcess(object):
 
     def threshold_simula(self):
         """求模拟结果的爆发阈值.
-        论文引用：在模拟过程中, 当w和q确定时, 随着感染率λ的增加最终稳定的平均感染密度ρ(t > 2500)
-        将从0变为非0, 从而可以获得爆发阈值λ_c.
+        论文引用：在模拟过程中, 当w和q确定时, 随着感染率λ的增加最终稳定的
+        平均感染密度ρ(t > 2500)将从0变为非0, 从而可以获得爆发阈值λ_c.
         """
         work_p = INIT_WORK_P  # 初始感染率λ，给初值，减少迭代次数
         step_v = INIT_STEP  # 变化的步长
@@ -145,25 +145,25 @@ class ReactiveProcess(object):
                 cache[work_p] = density  # 记录
             end = time.time()
             time_used = (end - start) / 60  # mins
-            self.logger.info('w = %d, q = %.5f, density = %.5f, ' + \
-                'work_p = %.5f, step_v = %.5f, %.2f mins used' % \
+            self.logger.info(('w = %d, q = %.5f, density = %.5f, ' + \
+                'work_p = %.5f, step_v = %.5f, %.2f mins used') % \
                 (self.w, self.q, density, work_p, step_v, time_used))
 
             # 震荡求解，用越来越小的步长逐步逼近实际的感染率，类似二分搜索
-            if density > 0:
+            if density > 0:  # 感染密度大于0，需降低感染率
                 if operation == None:
                     operation = '-'
                 elif operation == '+':  # 方向变化，步长减半
                     operation = '-'
                     step_v /= 2
-            elif density == 0:
+            else:  # 感染密度等于0，需增大感染率
                 if operation == None:
                     operation = '+'
                 elif operation == '-':  # 方向变化，步长减半
                     operation = '+'
                     step_v /= 2
 
-            if step_v < PRECISION:  # 先判断精度再修改work_p
+            if step_v < PRECISION and density <= 0:  # 先判断精度再修改work_p
                 break
 
             if operation == '+':
@@ -187,7 +187,7 @@ class ReactiveProcess(object):
             if i[1] == 0:
                 zero_degree.add(i)
 
-        # 取迭代结果中的最小平均感染密度
+        # 取感染的节点数最少的一个结果
         for idx, itr in enumerate(iterations):
             temp = itr['node_count'][1]
             if temp < infected_n:
@@ -237,9 +237,10 @@ class ReactiveProcess(object):
         thr_form = self.threshold_formula()
         end = time.time()
         time_used = (end - start) / 60  # mins
-        self.save2file((self.w, self.q, '%.5f' % thr_simu, '%.5f' % thr_form, self.variable))
-        self.logger.info('w = %d, q = %.5f done, %.2f mins used' %\
-            (self.w, self. q, time_used))
+        self.save2file((self.w, self.q, '%.5f' % thr_simu,
+            '%.5f' % thr_form, self.variable))
+        self.logger.info(('N = %d, TIMES = %d, w = %d, q = %.5f done' +\
+            ', %.2f mins used') % (N, TIMES, self.w, self. q, time_used))
 
 
 class ContactProcess(object):
@@ -250,7 +251,7 @@ class ContactProcess(object):
 if __name__ == '__main__':
     if len(sys.argv) != 5:
         print('4 args are needed!:\n(1)graph name(er/ws/ba)\n' +\
-            '(2)variable(w/q)\n(3)w[1-10]\n(4)q[0-10]')
+              '(2)variable(w/q)\n(3)w[1-10]\n(4)q[0-10]')
         exit()
     graph_name = sys.argv[1]
     variable = sys.argv[2]
