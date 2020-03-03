@@ -10,7 +10,7 @@ do
     do
         for w2 in {0..9..2}  # 小数位
         do
-            echo "nohup python3 sis.py $g w $w1.$w2 0.1 &"
+            nohup python3 sis.py $g w $w1.$w2 0.1 &
         done
     done
 
@@ -19,7 +19,7 @@ do
     do
         for q2 in {0..9..2}  # 第二位小数
         do
-            echo "nohup python3 sis.py $g q 2 0.$q1$q2 &"
+            nohup python3 sis.py $g q 2 0.$q1$q2 &
         done
     done
 done
