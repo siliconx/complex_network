@@ -40,7 +40,7 @@ class ReactiveProcess(object):
             self.graph = nx.watts_strogatz_graph(N, K, 0.3)
         elif graph_name == 'ba':  # BA无标度网络
             # 经实验，m = <k> / 2
-            self.graph = nx.barabasi_albert_graph(N, K / 2)
+            self.graph = nx.barabasi_albert_graph(N, int(K / 2))
         else:
             raise ValueError('graph name = er/ws/ba')
         self.graph_name = graph_name
@@ -118,7 +118,7 @@ class ReactiveProcess(object):
             end = time.time()
             time_used = (end - start) / 60  # mins
             self.logger.info(
-                ('w = %d, q = %.5f, density = %.5f, work_p = %.5f, ' + \
+                ('w = %.5f, q = %.5f, density = %.5f, work_p = %.5f, ' + \
                 'step_v = %.5f, variable = %s, %.2f mins used') % \
                 (self.w, self.q, density, work_p, step_v, self.variable,
                     time_used))
@@ -203,7 +203,7 @@ class ReactiveProcess(object):
         time_used = (end - start) / 60  # mins
         self.save2file((self.w, self.q, '%.5f' % thr_simu,
             '%.5f' % thr_form, self.variable))
-        self.logger.info(('N = %d, TIMES = %d, w = %d, q = %.5f done' +\
+        self.logger.info(('N = %d, TIMES = %d, w = %.5f, q = %.5f done' +\
             ', %.2f mins used') % (N, TIMES, self.w, self. q, time_used))
 
 
@@ -215,11 +215,11 @@ class ContactProcess(object):
 if __name__ == '__main__':
     if len(sys.argv) != 5:
         print('4 args are needed!:\n(1)graph name(er/ws/ba)\n' +\
-              '(2)variable(w/q)\n(3)w[1-10]\n(4)q[0-10]')
+              '(2)variable(w/q)\n(3)w[1.0-10.0]\n(4)q[0-1.0]')
         exit()
     graph_name = sys.argv[1]
     variable = sys.argv[2]
-    w = int(sys.argv[3])
-    q = float(sys.argv[4]) / 10  # bash不支持小数，故在python中转换
+    w = float(sys.argv[3])
+    q = float(sys.argv[4])  # bash不支持小数，故在python中转换
     rp = ReactiveProcess(graph_name, variable, w, q)
     rp.run()
